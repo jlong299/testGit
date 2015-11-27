@@ -65,7 +65,8 @@ component ff_8to1_pj081 IS
 		q		: OUT STD_LOGIC_VECTOR (0 DOWNTO 0);
 		rdempty		: OUT STD_LOGIC ;
 		rdusedw		: OUT STD_LOGIC_VECTOR (16 DOWNTO 0);
-		wrfull		: OUT STD_LOGIC 
+		wrfull		: OUT STD_LOGIC ;
+		wrusedw		: OUT STD_LOGIC_VECTOR (16 DOWNTO 0)
 	);
 END component;
 
@@ -94,7 +95,7 @@ signal 	rdreq		:  STD_LOGIC ;
 signal 	wren_reg		:  STD_LOGIC ;
 signal 	q		:  STD_LOGIC_VECTOR (7 DOWNTO 0);
 signal 	rdempty		:  STD_LOGIC ;
-signal 	rdusedw		:  STD_LOGIC_VECTOR (15 DOWNTO 0);
+signal 	rdusedw	, wrusedw	:  STD_LOGIC_VECTOR (15 DOWNTO 0);
 signal 	wrfull		:  STD_LOGIC;
 
 signal cnt_s0 : integer range 0 to 7;
@@ -126,7 +127,8 @@ PORT map
 		q			=> q ,
 		rdempty		=> rdempty ,
 		rdusedw		=> rdusedw ,
-		wrfull		=> wrfull 
+		wrfull		=> wrfull ,
+		wrusedw		=> wrusedw
 	);
 
 -------------------------------------------
@@ -142,12 +144,17 @@ begin
   end if ;
 end process ; 
 
+ -- avoid fifo full
 process( wrclk, wrfull )
 begin
   if( wrfull = '1' ) then
     wren_reg <= '0';
   elsif( rising_edge(wrclk) ) then
-  	wren_reg <= wren;
+  	if wrusedw(wrusedw'high downto wrusedw'high-7) = "11111111" then
+  		wren_reg <= '0';
+  	else
+	  	wren_reg <= wren;
+	end if;
   end if ;
 end process ; 
 
@@ -307,17 +314,6 @@ begin
   end if ;
 end process ; 
 
-
- PN_ERR_Detect_inst: PN_ERR_Detect 
-		 PORT map
-		(
-			aReset	=> aReset,
-		   ClockIn  => rdclk,
-		   Enable	=> val_ff_out,
-		   DataIn	=> d_ff_out(7),
-		   SyncFlag => open,
-		   ErrResult => open
-		);
 
 
 ------------------------------------------
