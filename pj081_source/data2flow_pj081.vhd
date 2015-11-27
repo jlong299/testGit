@@ -356,7 +356,7 @@ end process ;
 		
 	);
 
-
+    -- ena_glb and ean_glb_1bit must start and the same time after reset !!
 	process( aReset, rdclk_1bit)
 	begin
 		if aReset='1' then
