@@ -14,7 +14,9 @@
 --
 -- Problems	: 
 -- History	: 
---
+--           verson 2  20151201 
+--           Output 1bit data : frameHead + length + payload + padding .   framHead : 1ACFFCED(4 bytes)   length : 1~2048(2bytes)    payload(1~2048 bytes)   
+--           padding : 47    padding is need only when FIFO is empty
 ----------------------------------
 library ieee ;
 use ieee.std_logic_1164.all ;
@@ -175,15 +177,14 @@ end process ;
 		if ena_glb = '1' then
 			case state is
 				when s0=>
-					if rdempty = '1' or (rdusedw = (rdusedw'range => '0')) then
+					if rdempty = '1' or (rdusedw = (rdusedw'range => '0')) then  -- fifo is empty
 						state <= s0;
-					-- (rdusedw = (rdusedw'range => '0')  -->  full
-					elsif ( unsigned(rdusedw) >= resize(cnst_len,rdusedw'length))  then
+					elsif ( unsigned(rdusedw) >= resize(cnst_len,rdusedw'length))  then  -- fifo is not empty
 						state <= s1;
 						len_record <= cnst_len;
 					else
 						state <= s1;
-						len_record <= resize(unsigned(rdusedw),len_record'length);
+						len_record <= resize(unsigned(rdusedw),len_record'length);   -- record the length value
 					end if;
 				when s1 =>
 					if s1_finish = '1' then
@@ -345,7 +346,8 @@ end process ;
 		
 	);
 
-    -- ena_glb and ean_glb_1bit must start and the same time after reset !!
+    -- ena_glb and ean_glb_1bit must start at the same time after reset !!
+	 -- Avoid empty and full !
 	process( aReset, rdclk_1bit)
 	begin
 		if aReset='1' then

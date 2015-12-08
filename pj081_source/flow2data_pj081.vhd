@@ -68,14 +68,14 @@ begin
   end if ;
 end process ; 
 
--- identifier
+-- hit_head
 process( clk_1bit, aReset )
 begin
   if( aReset = '1' ) then
     hit_head <= '0' ;
   elsif( rising_edge(clk_1bit) ) then
   if val_in = '1'  then
-    if d_reg(33 downto 2) = x"EDFCCF1A" then
+    if d_reg(33 downto 2) = x"EDFCCF1A" then   -- Found Head
       hit_head <= '1' ;
     else
       hit_head <= '0' ;
@@ -99,13 +99,13 @@ end process ;
 		if val_in = '1'  then
 			case state is
 				when s0=>
-					if hit_head = '1' then  -- padding
+					if hit_head = '1' then  -- Found Head
 						state <= s1;
 					else
 						state <= s0;
 					end if;
 				when s1=>
-					if s1_finish = '1'  then  -- frm head
+					if s1_finish = '1'  then  -- Frame end
 						state <= s0;
 					else
 						state <= s1;
@@ -120,7 +120,7 @@ end process ;
 
 ---------   End  of state machine ---------------------
 
- -- cnt_s1
+ -- cnt_s1    0 ~ 7   counter for 1to8 trans
  process( clk_1bit, aReset )
  begin
    if( aReset = '1' ) then
@@ -136,7 +136,7 @@ end process ;
    end if ;
  end process ; 
 
- -- cnt_s1_len
+ -- cnt_s1_len    counter for frame   
  process( clk_1bit, aReset )
  begin
    if( aReset = '1' ) then
@@ -155,7 +155,7 @@ end process ;
  end process ; 
 
 
- --length_record
+ --length_record      get from length field 
  process( clk_1bit, aReset )
  begin
    if( aReset = '1' ) then
@@ -175,7 +175,7 @@ end process ;
    end if ;
  end process ; 
 
- -- d_out val_out
+ -- d_out val_out s1_finish
  process( clk_1bit, aReset )
  begin
    if( aReset = '1' ) then
@@ -195,9 +195,9 @@ end process ;
               val_out <= '0' ;
             end if;
 
-            if (cnt_s1_len > 5) and ( cnt_s1_len = (length_record+5)) then
+            if (cnt_s1_len > 5) and ( cnt_s1_len = (length_record+5)) then   -- must > 5 (min len)
               s1_finish <= '1';
-            elsif cnt_s1_len = ( cnst_len_max + 16 ) then
+            elsif cnt_s1_len = ( cnst_len_max + 16 ) then   -- (max len plus)
 					s1_finish <= '1';
 				else
               s1_finish <= '0';

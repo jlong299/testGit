@@ -78,7 +78,7 @@ BEGIN
 		ErrNoOut	<= (others => '0');
 	elsif rising_edge(InClk) THEN	--'1'
 		if Enable='1' then
-				if total<100000000 then --统计长度为10^7
+				if total<1000000 then --统计长度为10^6
 					Total	<=Total+1;
 					IF InDat='1' THEN
 						ErrNo<=ErrNo+1;
