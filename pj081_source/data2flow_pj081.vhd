@@ -14,6 +14,7 @@
 --
 -- Problems	: 
 -- History	: 
+--
 ----------------------------------
 library ieee ;
 use ieee.std_logic_1164.all ;
@@ -49,7 +50,8 @@ component ff_tx_pj081 IS
 		q		: OUT STD_LOGIC_VECTOR (7 DOWNTO 0);
 		rdempty		: OUT STD_LOGIC ;
 		rdusedw		: OUT STD_LOGIC_VECTOR (15 DOWNTO 0);
-		wrfull		: OUT STD_LOGIC 
+		wrfull		: OUT STD_LOGIC ;
+		wrusedw		: OUT STD_LOGIC_VECTOR (15 DOWNTO 0)
 	);
 END component;
 
@@ -65,8 +67,7 @@ component ff_8to1_pj081 IS
 		q		: OUT STD_LOGIC_VECTOR (0 DOWNTO 0);
 		rdempty		: OUT STD_LOGIC ;
 		rdusedw		: OUT STD_LOGIC_VECTOR (16 DOWNTO 0);
-		wrfull		: OUT STD_LOGIC ;
-		wrusedw		: OUT STD_LOGIC_VECTOR (16 DOWNTO 0)
+		wrfull		: OUT STD_LOGIC 
 	);
 END component;
 
@@ -84,10 +85,12 @@ END component;
  END component;
 
 	-- Build an enumerated type for the state machine
-	type state_type is (s0, s1, s2);
+	--type state_type is (s0, s1);
 
 	-- Register to hold the current state
-	signal state   : state_type;
+	signal state   : std_logic;
+	constant s0 : std_logic := '0';
+	constant s1 : std_logic := '1';
 
 signal 	aclr		:  STD_LOGIC  := '0';
 signal 	d_in_reg		:  STD_LOGIC_VECTOR (7 DOWNTO 0);
@@ -98,12 +101,12 @@ signal 	rdempty		:  STD_LOGIC ;
 signal 	rdusedw	, wrusedw	:  STD_LOGIC_VECTOR (15 DOWNTO 0);
 signal 	wrfull		:  STD_LOGIC;
 
-signal cnt_s0 : integer range 0 to 7;
-signal len_record, cnt_rden : unsigned(7 downto 0);
-constant cnst_len : unsigned(7 downto 0) := to_unsigned(32,8);
+--signal cnt_s0 : integer range 0 to 7;
+signal len_record, cnt_rden : unsigned(15 downto 0);
+constant cnst_len : unsigned(15 downto 0) := to_unsigned(2048,16);--2048,16);
 
 signal d_ff_out : std_logic_vector(7 downto 0) ;
-signal val_ff_out, rden, s2_finish : std_logic;
+signal val_ff_out, rden, s1_finish : std_logic;
 
 signal d_padding : std_logic_vector(7 downto 0) ;
 signal rdreq_1bit, rdempty_1bit, rdreq_start : std_logic;
@@ -172,28 +175,21 @@ end process ;
 		if ena_glb = '1' then
 			case state is
 				when s0=>
-					if cnt_s0 = 3 then
-						state <= s0;
-					else
-						state <= s1;
-					end if;
-
-				when s1=>
 					if rdempty = '1' or (rdusedw = (rdusedw'range => '0')) then
-						state <= s1;
+						state <= s0;
 					-- (rdusedw = (rdusedw'range => '0')  -->  full
 					elsif ( unsigned(rdusedw) >= resize(cnst_len,rdusedw'length))  then
-						state <= s2;
+						state <= s1;
 						len_record <= cnst_len;
 					else
-						state <= s2;
+						state <= s1;
 						len_record <= resize(unsigned(rdusedw),len_record'length);
 					end if;
-				when s2 =>
-					if s2_finish = '1' then
+				when s1 =>
+					if s1_finish = '1' then
 						state <= s0;
 					else
-						state <= s2;
+						state <= s1;
 					end if;
 				when others =>
 					state <= s0;
@@ -204,42 +200,26 @@ end process ;
 
 ----------------  End    state machine --------------------------
 
--- cnt_s0
-process( rdclk, aReset )
-begin
-  if( aReset = '1' ) then
-    cnt_s0 <= 0;
-  elsif( rising_edge(rdclk) ) then
-  if ena_glb = '1'  then
-  	if state = s0 then
-  		if cnt_s0 = 3 then
-  			cnt_s0 <= 0;
-  		else
-  			cnt_s0 <= cnt_s0 + 1;
-  		end if;
-  	else
-  		cnt_s0 <= 0;
-  	end if;
-  end if;
-  end if ;
-end process ; 
-
 -- 	rden		
 process( rdclk, aReset )
 begin
   if( aReset = '1' ) then
     rden <= '0' ;
     cnt_rden <= (others => '0');
-    s2_finish <= '0' ;
+    s1_finish <= '0' ;
   elsif( rising_edge(rdclk) ) then
   if ena_glb = '1'  then
-  	if state = s2 then
-  		if cnt_rden = (len_record+4) then
+  	if state = s1 then
+  		if cnt_rden = (len_record+6) then
   			cnt_rden <= (others => '0');
-  			s2_finish <= '1';
   		else
   			cnt_rden <= cnt_rden + 1;
-  			s2_finish <= '0' ;
+  		end if;
+
+  		if cnt_rden = (len_record+4) then
+  			s1_finish <= '1';
+  		else
+  			s1_finish <= '0';
   		end if;
 
 --  		if cnt_rden = 2 then
@@ -250,7 +230,7 @@ begin
 --  			rden <= rden;
 --  		end if;
 
-		if (cnt_rden >= 2) and (cnt_rden < (len_record+2) )then
+		if (cnt_rden >= 4) and (cnt_rden < (len_record+4) )then
   			rden <= '1' ;
   		else
   			rden <= '0';
@@ -259,7 +239,7 @@ begin
   	else
   		cnt_rden <= (others => '0');
   		rden <= '0' ;
-  		s2_finish <= '0' ;
+  		s1_finish <= '0' ;
   	end if;
   else
   	--rden <= '0';
@@ -288,23 +268,32 @@ begin
     d_ff_out <= (others => '0');
   elsif( rising_edge(rdclk) ) then
   if ena_glb = '1'  then
-  	if state = s2 then
+  	if state = s1 then
   		--if cnt_rden = 2 then
-		if cnt_rden = 2 then
+		if cnt_rden = 0 then
   			val_ff_out <= '1' ;
-  		elsif cnt_rden = (len_record+4) then
+  		elsif cnt_rden = (len_record+6) then
   			val_ff_out <= '0';
   		else
   			val_ff_out <= val_ff_out;
   		end if;
 
-  		if cnt_rden = 2 then
-  			d_ff_out <= "10110010";  -- Head B2
-  		elsif cnt_rden = 3 then
-  			d_ff_out <= std_logic_vector(len_record);
-  		else
+  		case cnt_rden is
+  		when to_unsigned(0,16) =>
+  			d_ff_out <= x"1A";  -- Head 
+  		when to_unsigned(1,16) =>
+  			d_ff_out <= x"CF";  -- Head 
+  		when to_unsigned(2,16) =>
+  			d_ff_out <= x"FC";  -- Head 
+  		when to_unsigned(3,16) =>
+  			d_ff_out <= x"ED";  -- Head
+  		when to_unsigned(4,16) =>
+  			d_ff_out <= std_logic_vector(len_record(15 downto 8)); -- Len
+  		when to_unsigned(5,16) =>
+  			d_ff_out <= std_logic_vector(len_record(7 downto 0)); -- Len
+  		when others =>
   			d_ff_out <= q;
-  		end if;
+  		end case;
 
   	else
   		val_ff_out <= '0';
@@ -394,4 +383,3 @@ end process ;
 
 
 end architecture ;
-

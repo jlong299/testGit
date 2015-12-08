@@ -34,33 +34,33 @@ begin
   if( aReset = '1' ) then
     cnt <= 0;
   elsif( rising_edge(clk) ) then
---  	if cnt = 3 then
---  		cnt <= 0;
---  	else
---  		cnt <= cnt + 1;
---  	end if;
---
---  	if cnt = 2 then
---  		ena <= '1';
---  	elsif cnt = 0 then
---  		ena <= '0';
---  	else
---  		ena <= ena;
---  	end if;
-
-  	if cnt = 43575 then
+  	if cnt = 5 then
   		cnt <= 0;
   	else
   		cnt <= cnt + 1;
   	end if;
 
-  	if cnt = 1 then
+  	if cnt = 3 then
   		ena <= '1';
-  	elsif cnt = 16726 then
+  	elsif cnt = 0 then
   		ena <= '0';
   	else
   		ena <= ena;
   	end if;
+
+--  	if cnt = 43575 then
+--  		cnt <= 0;
+--  	else
+--  		cnt <= cnt + 1;
+--  	end if;
+--
+--  	if cnt = 1 then
+--  		ena <= '1';
+--  	elsif cnt = 16726 then
+--  		ena <= '0';
+--  	else
+--  		ena <= ena;
+--  	end if;
 
   end if ;
 end process ; 
