@@ -119,7 +119,8 @@ signal val_ff_out, rden, s1_finish : std_logic;
 signal d_padding : std_logic_vector(7 downto 0) ;
 signal rdreq_1bit, rdempty_1bit, rdreq_start : std_logic;
 signal rdusedw_1bit : std_logic_vector(16 downto 0) ;
-signal pn23, pn23_pd : std_logic_vector(23 downto 1) ;
+signal pn23 : std_logic_vector(23 downto 1) ;
+signal pn15_pd : std_logic_vector(15 downto 1) ;
 
 
 begin
@@ -333,21 +334,27 @@ process( rdclk, aReset )
 begin
   if( aReset = '1' ) then
     d_padding <= (others => '0');
-    pn23_pd(23 downto 2) <= (others => '0');
-    pn23_pd(1) <= '1';			
+    pn15_pd(15 downto 2) <= (others => '0');
+    pn15_pd(1) <= '1';			
   elsif( rising_edge(rdclk) ) then
   if ena_glb = '1'  then
   	if val_ff_out = '1' then
   		d_padding <= d_ff_out;
   	else
-  		d_padding <= pn23_pd(4) & pn23_pd(4) & pn23_pd(3) & pn23_pd(3) & pn23_pd(2) & pn23_pd(2) & pn23_pd(1) & pn23_pd(1); --"01000111"; -- Padding 47
-  	end if;
+  		-- 23 [23 18 0]
+  		-- 15 [15 14 0]
+  		d_padding <= pn15_pd(15 downto 12); --"01000111"; -- Padding 47
+  		  	 -- 		------------  scrambler ---------------
+  		    --      		pn23_pd(23 downto 9-4) <= pn23_pd(15+4 downto 1);
+  						--pn23_pd(8-4 downto 1)  <= pn23_pd(23 downto 16+4) xor pn23_pd(18 downto 11+4);
+  				  --  ---------------------------------------------------
+			    	  	------------  scrambler ---------------
+			            	pn15_pd(15 downto 5) <= pn15_pd(11 downto 1);
+			  				pn15_pd(4 downto 1)  <= pn15_pd(15 downto 12) xor pn15_pd(14 downto 11);
+			  		    --------------------------------------------------
+end if;
 
-  	  		------------  scrambler ---------------
-         
-          		pn23_pd(23 downto 9-4) <= pn23_pd(15+4 downto 1);
-				pn23_pd(8-4 downto 1)  <= pn23_pd(23 downto 16+4) xor pn23_pd(18 downto 11+4);
-		    ---------------------------------------------------
+  	  		
 
   end if;
   end if ;
