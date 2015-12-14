@@ -11,14 +11,8 @@
 -- Problems	: 
 -- History	: 
 --           verson 2  20151201 
---           Input 1bit data : frameHead + length + payload + padding .   framHead : 1ACFFCED(4 bytes)   length : 1~2048(2bytes)    payload(1~2048 bytes)   
+--           Output 1bit data : frameHead + length + payload + padding .   framHead : 1ACFFCED(4 bytes)   length : 1~2048(2bytes)    payload(1~2048 bytes)   
 --           padding : 47    padding is need only when FIFO is empty
---
---       verson  20151214
---       Payload = payload + scramble code
---       padding : pn23_pd(4) & pn23_pd(4) & pn23_pd(3) & pn23_pd(3) & pn23_pd(2) & pn23_pd(2) & pn23_pd(1) & pn23_pd(1)
---                 pn23_pd is another scramble code
---       frameHead :  5A4B4BA5 (01011010110100101101001010100101), which has only 6 "00" or "11"
 ----------------------------------
 library ieee ;
 use ieee.std_logic_1164.all ;
@@ -53,7 +47,7 @@ signal cnt_s1 : unsigned(2 downto 0);
  signal cnt_s1_len : unsigned(15 downto 0);
 
  constant cnst_len_max : unsigned(15 downto 0) := to_unsigned(2048,16);--2048,16);
-signal pn23 : std_logic_vector(23 downto 1) ;
+
 
 begin
 
@@ -74,14 +68,14 @@ begin
   end if ;
 end process ; 
 
--- hit_head
+-- identifier
 process( clk_1bit, aReset )
 begin
   if( aReset = '1' ) then
     hit_head <= '0' ;
   elsif( rising_edge(clk_1bit) ) then
   if val_in = '1'  then
-    if d_reg(33 downto 2) = x"A54B4B5A" then --x"EDFCCF1A" then   -- Found Head
+    if d_reg(33 downto 2) = x"EDFCCF1A" then
       hit_head <= '1' ;
     else
       hit_head <= '0' ;
@@ -105,13 +99,13 @@ end process ;
 		if val_in = '1'  then
 			case state is
 				when s0=>
-					if hit_head = '1' then  -- Found Head
+					if hit_head = '1' then  -- padding
 						state <= s1;
 					else
 						state <= s0;
 					end if;
 				when s1=>
-					if s1_finish = '1'  then  -- Frame end
+					if s1_finish = '1'  then  -- frm head
 						state <= s0;
 					else
 						state <= s1;
@@ -126,7 +120,7 @@ end process ;
 
 ---------   End  of state machine ---------------------
 
- -- cnt_s1    0 ~ 7   counter for 1to8 trans
+ -- cnt_s1
  process( clk_1bit, aReset )
  begin
    if( aReset = '1' ) then
@@ -142,7 +136,7 @@ end process ;
    end if ;
  end process ; 
 
- -- cnt_s1_len    counter for frame   
+ -- cnt_s1_len
  process( clk_1bit, aReset )
  begin
    if( aReset = '1' ) then
@@ -161,7 +155,7 @@ end process ;
  end process ; 
 
 
- --length_record      get from length field 
+ --length_record
  process( clk_1bit, aReset )
  begin
    if( aReset = '1' ) then
@@ -181,28 +175,18 @@ end process ;
    end if ;
  end process ; 
 
- -- d_out val_out s1_finish
+ -- d_out val_out
  process( clk_1bit, aReset )
  begin
    if( aReset = '1' ) then
      d_out <= (others => '0');
      val_out <= '0' ;
      s1_finish <= '0' ;
-     pn23 <= (others => '0');
    elsif( rising_edge(clk_1bit) ) then
      if val_in = '1'  then
         if cnt_s1 = "000" then
-            ------------  de-scramble ---------------
-              if cnt_s1_len <= 5 then
-                    pn23(23 downto 21) <= (others => '0');
-                    pn23(20 downto 1) <= x"3725f";
-              else 
-                    pn23(23 downto 9) <= pn23(15 downto 1);
-                    pn23(8 downto 1)  <= pn23(23 downto 16) xor pn23(18 downto 11);
-              end if;
-              ---------------------------------------------------
             if cnt_s1_len >= 6 then
-              d_out <= d_reg(7 downto 0) xor pn23(23 downto 16);
+              d_out <= d_reg(7 downto 0);
             end if;
 
             if (cnt_s1_len >= 6) then --and (cnt_s1_len < (length_record+6)) then
@@ -211,9 +195,9 @@ end process ;
               val_out <= '0' ;
             end if;
 
-            if (cnt_s1_len > 5) and ( cnt_s1_len = (length_record+5)) then   -- must > 5 (min len)
+            if (cnt_s1_len > 5) and ( cnt_s1_len = (length_record+5)) then
               s1_finish <= '1';
-            elsif cnt_s1_len = ( cnst_len_max + 16 ) then   -- (max len plus)
+            elsif cnt_s1_len = ( cnst_len_max + 16 ) then
 					s1_finish <= '1';
 				else
               s1_finish <= '0';

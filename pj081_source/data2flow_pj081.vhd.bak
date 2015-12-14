@@ -14,16 +14,8 @@
 --
 -- Problems	: 
 -- History	: 
---           verson 2  20151201 
---           Output 1bit data : frameHead + length + payload + padding .   framHead : 1ACFFCED(4 bytes)   length : 1~2048(2bytes)    payload(1~2048 bytes)   
---           padding : 47    padding is need only when FIFO is empty
 --
---			 verson  20151214
---			 Payload = payload + scramble code
---			 padding : pn23_pd(4) & pn23_pd(4) & pn23_pd(3) & pn23_pd(3) & pn23_pd(2) & pn23_pd(2) & pn23_pd(1) & pn23_pd(1)
---			           pn23_pd is another scramble code
---			 frameHead :  5A4B4BA5 (01011010110100101101001010100101), which has only 6 "00" or "11"
----------------------------------------------------------------
+----------------------------------
 library ieee ;
 use ieee.std_logic_1164.all ;
 use ieee.numeric_std.all ;
@@ -119,8 +111,6 @@ signal val_ff_out, rden, s1_finish : std_logic;
 signal d_padding : std_logic_vector(7 downto 0) ;
 signal rdreq_1bit, rdempty_1bit, rdreq_start : std_logic;
 signal rdusedw_1bit : std_logic_vector(16 downto 0) ;
-signal pn23, pn23_pd : std_logic_vector(23 downto 1) ;
-
 
 begin
 
@@ -185,14 +175,15 @@ end process ;
 		if ena_glb = '1' then
 			case state is
 				when s0=>
-					if rdempty = '1' or (rdusedw = (rdusedw'range => '0')) then  -- fifo is empty
+					if rdempty = '1' or (rdusedw = (rdusedw'range => '0')) then
 						state <= s0;
-					elsif ( unsigned(rdusedw) >= resize(cnst_len,rdusedw'length))  then  -- fifo is not empty
+					-- (rdusedw = (rdusedw'range => '0')  -->  full
+					elsif ( unsigned(rdusedw) >= resize(cnst_len,rdusedw'length))  then
 						state <= s1;
 						len_record <= cnst_len;
 					else
 						state <= s1;
-						len_record <= resize(unsigned(rdusedw),len_record'length);   -- record the length value
+						len_record <= resize(unsigned(rdusedw),len_record'length);
 					end if;
 				when s1 =>
 					if s1_finish = '1' then
@@ -275,7 +266,6 @@ begin
   if( aReset = '1' ) then
     val_ff_out <= '0';
     d_ff_out <= (others => '0');
-    pn23 <= (others => '0');
   elsif( rising_edge(rdclk) ) then
   if ena_glb = '1'  then
   	if state = s1 then
@@ -290,30 +280,20 @@ begin
 
   		case cnt_rden is
   		when to_unsigned(0,16) =>
-  			d_ff_out <= x"5A"; --x"1A";  -- Head 
+  			d_ff_out <= x"1A";  -- Head 
   		when to_unsigned(1,16) =>
-  			d_ff_out <= x"4B"; --x"CF";  -- Head 
+  			d_ff_out <= x"CF";  -- Head 
   		when to_unsigned(2,16) =>
-  			d_ff_out <= x"4B"; --x"FC";  -- Head 
+  			d_ff_out <= x"FC";  -- Head 
   		when to_unsigned(3,16) =>
-  			d_ff_out <= x"A5"; --x"ED";  -- Head
+  			d_ff_out <= x"ED";  -- Head
   		when to_unsigned(4,16) =>
   			d_ff_out <= std_logic_vector(len_record(15 downto 8)); -- Len
   		when to_unsigned(5,16) =>
   			d_ff_out <= std_logic_vector(len_record(7 downto 0)); -- Len
   		when others =>
-  			d_ff_out <= q xor pn23(23 downto 16);
+  			d_ff_out <= q;
   		end case;
-
-  		------------  scrambler ---------------
-        if cnt_rden <= 5 then
-          		pn23(23 downto 21) <= (others => '0');
-          		pn23(20 downto 1) <= x"3725f";
-        else 
-          		pn23(23 downto 9) <= pn23(15 downto 1);
-				pn23(8 downto 1)  <= pn23(23 downto 16) xor pn23(18 downto 11);
-		end if;
-        ---------------------------------------------------
 
   	else
   		val_ff_out <= '0';
@@ -332,23 +312,14 @@ end process ;
 process( rdclk, aReset )
 begin
   if( aReset = '1' ) then
-    d_padding <= (others => '0');
-    pn23_pd(23 downto 2) <= (others => '0');
-    pn23_pd(1) <= '1';			
+    d_padding <= (others => '0');			
   elsif( rising_edge(rdclk) ) then
   if ena_glb = '1'  then
   	if val_ff_out = '1' then
   		d_padding <= d_ff_out;
   	else
-  		d_padding <= pn23_pd(4) & pn23_pd(4) & pn23_pd(3) & pn23_pd(3) & pn23_pd(2) & pn23_pd(2) & pn23_pd(1) & pn23_pd(1); --"01000111"; -- Padding 47
+  		d_padding <= "01000111"; -- Padding 47
   	end if;
-
-  	  		------------  scrambler ---------------
-         
-          		pn23_pd(23 downto 9-4) <= pn23_pd(15+4 downto 1);
-				pn23_pd(8-4 downto 1)  <= pn23_pd(23 downto 16+4) xor pn23_pd(18 downto 11+4);
-		    ---------------------------------------------------
-
   end if;
   end if ;
 end process ; 
@@ -374,8 +345,7 @@ end process ;
 		
 	);
 
-    -- ena_glb and ean_glb_1bit must start at the same time after reset !!
-	 -- Avoid empty and full !
+    -- ena_glb and ean_glb_1bit must start and the same time after reset !!
 	process( aReset, rdclk_1bit)
 	begin
 		if aReset='1' then
