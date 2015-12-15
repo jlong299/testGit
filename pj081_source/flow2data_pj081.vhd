@@ -81,7 +81,7 @@ begin
     hit_head <= '0' ;
   elsif( rising_edge(clk_1bit) ) then
   if val_in = '1'  then
-    if d_reg(33 downto 2) = x"A54B4B5A" then --x"EDFCCF1A" then   -- Found Head
+    if d_reg(33 downto 2) = x"D20CCF1A" then --x"EDFCCF1A" then   -- Found Head
       hit_head <= '1' ;
     else
       hit_head <= '0' ;

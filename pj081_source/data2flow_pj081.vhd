@@ -120,7 +120,7 @@ signal d_padding : std_logic_vector(7 downto 0) ;
 signal rdreq_1bit, rdempty_1bit, rdreq_start : std_logic;
 signal rdusedw_1bit : std_logic_vector(16 downto 0) ;
 signal pn23 : std_logic_vector(23 downto 1) ;
-signal pn15_pd : std_logic_vector(15 downto 1) ;
+signal pn17_pd : std_logic_vector(17 downto 1) ;
 
 
 begin
@@ -291,13 +291,13 @@ begin
 
   		case cnt_rden is
   		when to_unsigned(0,16) =>
-  			d_ff_out <= x"5A"; --x"1A";  -- Head 
+  			d_ff_out <= x"1A"; --x"1A";  -- Head 
   		when to_unsigned(1,16) =>
-  			d_ff_out <= x"4B"; --x"CF";  -- Head 
+  			d_ff_out <= x"CF"; --x"CF";  -- Head 
   		when to_unsigned(2,16) =>
-  			d_ff_out <= x"4B"; --x"FC";  -- Head 
+  			d_ff_out <= x"0C"; --x"FC";  -- Head 
   		when to_unsigned(3,16) =>
-  			d_ff_out <= x"A5"; --x"ED";  -- Head
+  			d_ff_out <= x"D2"; --x"ED";  -- Head
   		when to_unsigned(4,16) =>
   			d_ff_out <= std_logic_vector(len_record(15 downto 8)); -- Len
   		when to_unsigned(5,16) =>
@@ -334,8 +334,8 @@ process( rdclk, aReset )
 begin
   if( aReset = '1' ) then
     d_padding <= (others => '0');
-    pn15_pd(15 downto 2) <= (others => '0');
-    pn15_pd(1) <= '1';			
+    pn17_pd(17 downto 2) <= (others => '0');
+    pn17_pd(1) <= '1';			
   elsif( rising_edge(rdclk) ) then
   if ena_glb = '1'  then
   	if val_ff_out = '1' then
@@ -343,14 +343,21 @@ begin
   	else
   		-- 23 [23 18 0]
   		-- 15 [15 14 0]
-  		d_padding <= pn15_pd(15 downto 12); --"01000111"; -- Padding 47
+  		d_padding(7) <= pn17_pd(8+2); --"01000111"; -- Padding 47
+  		d_padding(6) <= pn17_pd(9+2);
+  		d_padding(5) <= pn17_pd(10+2);
+  		d_padding(4) <= pn17_pd(11+2);
+  		d_padding(3) <= pn17_pd(12+2);
+  		d_padding(2) <= pn17_pd(13+2);
+  		d_padding(1) <= pn17_pd(14+2);
+  		d_padding(0) <= pn17_pd(15+2);
   		  	 -- 		------------  scrambler ---------------
   		    --      		pn23_pd(23 downto 9-4) <= pn23_pd(15+4 downto 1);
   						--pn23_pd(8-4 downto 1)  <= pn23_pd(23 downto 16+4) xor pn23_pd(18 downto 11+4);
   				  --  ---------------------------------------------------
 			    	  	------------  scrambler ---------------
-			            	pn15_pd(15 downto 5) <= pn15_pd(11 downto 1);
-			  				pn15_pd(4 downto 1)  <= pn15_pd(15 downto 12) xor pn15_pd(14 downto 11);
+			            	pn17_pd(17 downto 9) <= pn17_pd(9 downto 1);
+			  				pn17_pd(8 downto 1)  <= pn17_pd(17 downto 10) xor pn17_pd(14 downto 7);
 			  		    --------------------------------------------------
 end if;
 
